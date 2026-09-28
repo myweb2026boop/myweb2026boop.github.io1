@@ -1,0 +1,626 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>手机桌面复刻</title>
+<style>
+  :root {
+    /* 图标缩小，组件放大 */
+    --app-icon-size: 48px;     
+    --app-icon-radius: 11px;
+    --widget-size: 90px;      
+    --text-size: 11px;
+    --safe-top: env(safe-area-inset-top, 44px);
+    --safe-bottom: env(safe-area-inset-bottom, 34px);
+  }
+
+  * {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+    -webkit-tap-highlight-color: transparent;
+    user-select: none;
+  }
+
+  html, body {
+    width: 100vw;
+    height: 100vh;
+    height: 100dvh;
+    overflow: hidden;
+    background-color: #e5e7eb;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  }
+
+  ::-webkit-scrollbar { display: none; }
+
+  /* ================= 主屏幕 ================= */
+  #homeScreen {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    padding-top: var(--safe-top);
+    padding-bottom: var(--safe-bottom);
+    background: #ffffff;
+    position: relative;
+    overflow: hidden;
+  }
+
+  /* ================= 顶部组件 ================= */
+  .top-widget-container {
+    width: 90%;
+    max-width: 340px;
+    margin: 10px auto 10px auto;
+    display: flex;
+    flex-direction: column;
+    flex-shrink: 0;
+  }
+
+  .widget-header {
+    display: flex;
+    align-items: center;
+    justify-content: flex-start;
+    font-size: 13px;
+    color: #3B82F6; 
+    margin-bottom: 8px;
+    padding-left: 2px;
+    font-weight: 500;
+  }
+  .widget-header span[contenteditable="true"] { outline: none; padding: 0 2px; }
+  .widget-header .divider { color: #9CA3AF; margin: 0 8px; font-weight: 300; }
+
+  .widget-image-box {
+    width: 100%;
+    height: 150px; 
+    border: 1px solid #D1D5DB;
+    border-radius: 6px;
+    background-color: #ffffff;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    overflow: hidden;
+    cursor: pointer;
+    margin-bottom: 10px;
+    position: relative;
+  }
+  .widget-image-box svg { width: 100%; height: 100%; object-fit: contain; }
+  .widget-image-box img { width: 100%; height: 100%; object-fit: cover; }
+
+  .widget-input-box {
+    width: 100%;
+    height: 40px;
+    border: 1px solid #D1D5DB;
+    border-radius: 6px;
+    background-color: #ffffff;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0 12px;
+    margin-bottom: 12px;
+  }
+  .widget-input-box span[contenteditable="true"] {
+    outline: none; font-size: 13px; color: #6B7280; flex: 1;
+  }
+
+  .widget-footer {
+    text-align: center; font-size: 14px; font-weight: bold; color: #374151;
+  }
+  .widget-footer span[contenteditable="true"] { outline: none; padding: 0 5px; }
+
+  /* 彻底删除的标题颜色 */
+  .home-title {
+    display: none !important;
+  }
+
+  /* ================= 图标网格 ================= */
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(3, 100px); 
+    justify-content: center;
+    gap: 22px 10px; 
+    padding: 0 10px;
+    flex: 1;
+    align-content: flex-start;
+  }
+
+  .app, .widget {
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    cursor: pointer; position: relative;
+    width: 100%;
+    min-width: 0;
+  }
+
+  /* 48px 的 App 图标 */
+  .app-icon {
+    width: var(--app-icon-size); height: var(--app-icon-size);
+    border-radius: var(--app-icon-radius);
+    display: flex; justify-content: center; align-items: center;
+    overflow: hidden; position: relative;
+    flex-shrink: 0;
+  }
+  .app-icon img { width: 100%; height: 100%; object-fit: cover; }
+
+  /* 90px 的大组件 */
+  .widget-ghost {
+    width: var(--widget-size); height: var(--widget-size);
+    display: flex; justify-content: center; align-items: center;
+    overflow: hidden; position: relative;
+    flex-shrink: 0;
+  }
+  .widget-ghost img { width: 100%; height: 100%; object-fit: cover; border-radius: 16px; }
+
+  .app-name {
+    font-size: var(--text-size); color: #333333; margin-top: 6px; font-weight: 500;
+    text-align: center; 
+    white-space: normal; 
+    word-break: break-word;
+    width: 100%;
+    line-height: 1.2;
+  }
+
+  /* 确保组件下方没有文字 */
+  .widget .app-name {
+    display: none !important;
+  }
+
+  /* ================= 美化App全屏界面 ================= */
+  #beautifyScreen {
+    display: none; 
+    position: fixed;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: #ffffff; 
+    z-index: 99999; 
+    flex-direction: column; 
+    padding-top: var(--safe-top); 
+    padding-bottom: var(--safe-bottom);
+  }
+  #beautifyScreen.active { 
+    display: flex; 
+  }
+
+  .beautify-header {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 12px 20px; border-bottom: 1px solid #f3f4f6; flex-shrink: 0;
+    background: #ffffff;
+  }
+  .beautify-header h2 { font-size: 17px; color: #111827; font-weight: 600; }
+  .beautify-header .actions { display: flex; gap: 10px; }
+  .btn-back, .fullscreen-btn {
+    background: #f3f4f6; color: #4B5563; border: none; padding: 6px 14px;
+    border-radius: 8px; font-size: 13px; font-weight: 600; cursor: pointer;
+  }
+  .fullscreen-btn.active { background: #1E3A8A; color: #ffffff; }
+
+  .app-edit-list { flex: 1; overflow-y: auto; padding: 0 20px; background: #ffffff; }
+  .app-edit-item {
+    display: flex; align-items: center; padding: 15px 0; border-bottom: 1px solid #f9fafb;
+  }
+  .edit-app-icon {
+    width: 44px; height: 44px; border-radius: 10px; overflow: hidden;
+    margin-right: 15px; flex-shrink: 0; display: flex; justify-content: center; align-items: center; background: #f9fafb;
+  }
+  .edit-app-icon img { width: 100%; height: 100%; object-fit: cover; }
+  .edit-app-icon svg { width: 100%; height: 100%; }
+  
+  .edit-input-group { display: flex; flex-direction: column; flex: 1; margin-right: 10px; }
+  .edit-input-group label { font-size: 10px; color: #9CA3AF; margin-bottom: 4px; }
+  .edit-input-group input {
+    border: 1px solid #E5E7EB; border-radius: 8px; padding: 8px 12px; font-size: 14px; width: 100%; outline: none; background: #f9fafb;
+  }
+  .edit-input-group input:focus { border-color: #BAE6FD; background: #fff; }
+  
+  .upload-icon-btn {
+    background: #FCE7F3; color: #BE185D; border: none; padding: 10px 14px; border-radius: 8px; font-size: 13px; font-weight: 600; cursor: pointer; white-space: nowrap;
+  }
+
+  .bottom-tip { text-align: center; font-size: 11px; color: #9CA3AF; padding: 15px; flex-shrink: 0; background: #ffffff; }
+
+  /* ================= 修复 PC 模式 ================= */
+  @media screen and (min-width: 500px) {
+    body {
+      background-color: #e5e7eb;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+    }
+    #homeScreen {
+      width: 375px; height: 812px; max-height: 95vh;
+      border-radius: 40px; box-shadow: 0 10px 40px rgba(0,0,0,0.1);
+      padding-top: 20px; padding-bottom: 20px; 
+    }
+    #beautifyScreen {
+      width: 375px; height: 812px; max-height: 95vh;
+      border-radius: 40px; padding-top: 20px; padding-bottom: 20px;
+      left: 50%; top: 50%; transform: translate(-50%, -50%);
+    }
+  }
+</style>
+</head>
+<body>
+
+<input type="file" id="imageUploader" accept="image/*" style="display: none;">
+
+<div id="homeScreen">
+  
+  <!-- 顶部组件 -->
+  <div class="top-widget-container">
+    <div class="widget-header">
+      <span contenteditable="true">Skip</span>
+      <span class="divider">|</span>
+      <span contenteditable="true">Help</span>
+      <span class="divider">|</span>
+      <span contenteditable="true">I ??? a robot</span>
+    </div>
+    
+    <div class="widget-image-box" id="topImageArea">
+      <svg viewBox="0 0 300 150" xmlns="http://www.w3.org/2000/svg">
+        <rect x="0" y="0" width="300" height="150" fill="#ffffff"/>
+        <circle cx="150" cy="75" r="24" fill="#FDF2E9" />
+        <path d="M120 75 C120 38, 180 38, 180 75 C180 85, 170 85, 170 75 C170 54, 130 54, 130 75 C130 85, 120 85, 120 75 Z" fill="#8B5A2B" />
+        <path d="M120 75 C115 90, 110 110, 115 115 C120 110, 125 90, 125 80 Z" fill="#8B5A2B" />
+        <path d="M180 75 C185 90, 190 110, 185 115 C180 110, 175 90, 175 80 Z" fill="#8B5A2B" />
+        <path d="M130 52 C135 42, 165 42, 170 52 C165 47, 135 47, 130 52 Z" fill="#8B5A2B" />
+        <path d="M138 75 Q143 78 148 75" stroke="#333" stroke-width="1.5" fill="none" />
+        <path d="M152 75 Q157 78 162 75" stroke="#333" stroke-width="1.5" fill="none" />
+        <ellipse cx="135" cy="82" rx="4" ry="2" fill="#FBCFE8" opacity="0.6"/>
+        <ellipse cx="165" cy="82" rx="4" ry="2" fill="#FBCFE8" opacity="0.6"/>
+        <path d="M140 95 L135 112 L165 112 L160 95 Z" fill="#1E3A8A" />
+        <path d="M135 112 L130 117 L140 117 Z" fill="#1E3A8A" />
+        <path d="M165 112 L170 117 L160 117 Z" fill="#1E3A8A" />
+        <rect x="80" y="90" width="50" height="4" fill="#D1D5DB" rx="1"/>
+        <rect x="80" y="85" width="4" height="15" fill="#D1D5DB" rx="1"/>
+        <rect x="89" y="85" width="4" height="15" fill="#D1D5DB" rx="1"/>
+        <rect x="98" y="85" width="4" height="15" fill="#D1D5DB" rx="1"/>
+        <path d="M135 100 L120 95 L105 95" stroke="#FDF2E9" stroke-width="6" fill="none" stroke-linecap="round"/>
+      </svg>
+    </div>
+
+    <div class="widget-input-box">
+      <span contenteditable="true">Enter the code</span>
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#9CA3AF" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <polyline points="9 10 4 15 9 20"></polyline>
+        <path d="M20 4v7a4 4 0 0 1-4 4H4"></path>
+      </svg>
+    </div>
+
+    <div class="widget-footer">
+      <span contenteditable="true">Top Widgets+</span>
+    </div>
+  </div>
+
+  <!-- 彻底删除了这个标题文字 -->
+  <!-- <div class="home-title">Colorful Widget</div> -->
+
+  <!-- 图标网格 -->
+  <div class="grid">
+    <!-- 1. 美化App -->
+    <div class="app" id="beautifyApp">
+      <div class="app-icon" id="beautify-icon">
+        <svg width="100%" height="100%" viewBox="0 0 64 64">
+          <rect width="64" height="64" rx="11" fill="#FCE4E8" />
+          <circle cx="32" cy="32" r="15" fill="#F9A8D4" opacity="0.6"/>
+          <path d="M22 42 L28 36 L38 26 L42 30 L32 40 L26 46 Z" fill="#ffffff"/>
+          <path d="M38 26 L42 30 L46 26 C47 25 47 23 46 22 C45 21 43 21 42 22 Z" fill="#ffffff"/>
+        </svg>
+      </div>
+      <div class="app-name" id="beautify-name">美化</div>
+    </div>
+    
+    <!-- 2. Gmail -->
+    <div class="app">
+      <div class="app-icon" id="gmail-icon">
+        <svg width="100%" height="100%" viewBox="0 0 64 64">
+          <rect width="64" height="64" rx="11" fill="#ffffff" />
+          <circle cx="32" cy="35" r="16" fill="#FBCFE8"/>
+          <circle cx="20" cy="22" r="7" fill="#FBCFE8"/>
+          <circle cx="44" cy="22" r="7" fill="#FBCFE8"/>
+          <circle cx="26" cy="35" r="2.5" fill="#333"/>
+          <circle cx="38" cy="35" r="2.5" fill="#333"/>
+          <ellipse cx="32" cy="42" rx="3" ry="2" fill="#F9A8D4"/>
+        </svg>
+      </div>
+      <div class="app-name" id="gmail-name">Gmail</div>
+    </div>
+
+    <!-- 3. 组件1 (右上) -->
+    <div class="widget" id="widgetArea">
+      <div class="widget-ghost" id="widgetIcon">
+        <svg width="100%" height="100%" viewBox="0 0 100 100">
+          <circle cx="25" cy="20" r="3.5" fill="#BAE6FD" opacity="0.8"/>
+          <circle cx="75" cy="25" r="3.5" fill="#BAE6FD" opacity="0.8"/>
+          <circle cx="30" cy="80" r="3.5" fill="#BAE6FD" opacity="0.8"/>
+          <circle cx="70" cy="78" r="3.5" fill="#BAE6FD" opacity="0.8"/>
+          <path d="M35 55 C25 25, 75 25, 65 55 C60 70, 50 78, 45 82 C40 78, 30 70, 35 55 Z" fill="none" stroke="#D2B48C" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
+          <path d="M40 68 C48 75, 52 75, 60 68" fill="none" stroke="#D2B48C" stroke-width="5" stroke-linecap="round"/>
+        </svg>
+      </div>
+    </div>
+
+    <!-- 4. Tiktok -->
+    <div class="app">
+      <div class="app-icon" id="tiktok-icon">
+        <svg width="100%" height="100%" viewBox="0 0 64 64">
+          <rect width="64" height="64" rx="11" fill="#E0F2FE" />
+        </svg>
+      </div>
+      <div class="app-name" id="tiktok-name">Tiktok</div>
+    </div>
+
+    <!-- 5. Messages -->
+    <div class="app">
+      <div class="app-icon" id="messages-icon">
+        <svg width="100%" height="100%" viewBox="0 0 64 64">
+          <rect width="64" height="64" rx="11" fill="#ffffff" />
+          <path d="M22 20 L32 45 L42 20 Z" fill="#F9A8D4"/>
+          <circle cx="27" cy="25" r="1.5" fill="#fff"/>
+          <circle cx="35" cy="30" r="1.5" fill="#fff"/>
+          <circle cx="30" cy="38" r="1.5" fill="#fff"/>
+          <path d="M22 20 Q32 15 42 20 Q32 25 22 20" fill="#86EFAC"/>
+        </svg>
+      </div>
+      <div class="app-name" id="messages-name">Messages</div>
+    </div>
+
+    <div class="app" style="visibility: hidden;"></div>
+
+    <!-- 6. 组件2 (左中) -->
+    <div class="widget" id="widgetArea2">
+      <div class="widget-ghost" id="widgetIcon2">
+        <svg width="100%" height="100%" viewBox="0 0 100 100">
+          <circle cx="25" cy="20" r="3.5" fill="#BAE6FD" opacity="0.8"/>
+          <circle cx="75" cy="25" r="3.5" fill="#BAE6FD" opacity="0.8"/>
+          <circle cx="30" cy="80" r="3.5" fill="#BAE6FD" opacity="0.8"/>
+          <circle cx="70" cy="78" r="3.5" fill="#BAE6FD" opacity="0.8"/>
+          <path d="M35 55 C25 25, 75 25, 65 55 C60 70, 50 78, 45 82 C40 78, 30 70, 35 55 Z" fill="none" stroke="#D2B48C" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
+          <path d="M40 68 C48 75, 52 75, 60 68" fill="none" stroke="#D2B48C" stroke-width="5" stroke-linecap="round"/>
+        </svg>
+      </div>
+    </div>
+
+    <!-- 7. Maps -->
+    <div class="app">
+      <div class="app-icon" id="maps-icon">
+        <svg width="100%" height="100%" viewBox="0 0 64 64">
+          <rect width="64" height="64" rx="11" fill="#ffffff" />
+          <path d="M32 50 C32 50, 12 35, 12 22 C12 12, 25 8, 32 18 C40 8, 52 12, 52 22 C52 35, 32 50, 32 50 Z" fill="#FDE68A"/>
+          <circle cx="24" cy="22" r="1.5" fill="#F9A8D4"/>
+          <circle cx="40" cy="28" r="1.5" fill="#F9A8D4"/>
+          <circle cx="32" cy="36" r="1.5" fill="#F9A8D4"/>
+        </svg>
+      </div>
+      <div class="app-name" id="maps-name">Maps</div>
+    </div>
+
+    <!-- 8. Spotify -->
+    <div class="app">
+      <div class="app-icon" id="spotify-icon">
+        <svg width="100%" height="100%" viewBox="0 0 64 64">
+          <rect width="64" height="64" rx="11" fill="#BAE6FD" />
+        </svg>
+      </div>
+      <div class="app-name" id="spotify-name">Spotify</div>
+    </div>
+
+    <div class="app" style="visibility: hidden;"></div>
+
+    <!-- 9. Clock -->
+    <div class="app">
+      <div class="app-icon" id="clock-icon">
+        <svg width="100%" height="100%" viewBox="0 0 64 64">
+          <rect width="64" height="64" rx="11" fill="#ffffff" />
+          <circle cx="32" cy="35" r="15" fill="#FBCFE8"/>
+          <circle cx="22" cy="25" r="6" fill="#FBCFE8"/>
+          <circle cx="42" cy="25" r="6" fill="#FBCFE8"/>
+          <circle cx="27" cy="35" r="2" fill="#333"/>
+          <circle cx="37" cy="35" r="2" fill="#333"/>
+          <ellipse cx="32" cy="42" rx="2.5" ry="1.5" fill="#F9A8D4"/>
+        </svg>
+      </div>
+      <div class="app-name" id="clock-name">Clock</div>
+    </div>
+
+    <!-- 10. Instagram -->
+    <div class="app">
+      <div class="app-icon" id="instagram-icon">
+        <svg width="100%" height="100%" viewBox="0 0 64 64">
+          <rect width="64" height="64" rx="11" fill="#FCE7F3" />
+        </svg>
+      </div>
+      <div class="app-name" id="instagram-name">Instagram</div>
+    </div>
+  </div>
+</div>
+
+<!-- 美化App 独立全屏界面 -->
+<div id="beautifyScreen">
+  <div class="beautify-header">
+    <button class="btn-back" onclick="closeBeautify()">返回</button>
+    <h2>美化中心</h2>
+    <div class="actions">
+      <button class="fullscreen-btn" id="fullscreenToggle" onclick="toggleFullscreen()">开启全屏</button>
+    </div>
+  </div>
+  <div class="app-edit-list" id="appEditList"></div>
+  <div class="bottom-tip">点击图标按钮从相册上传图片，输入框可直接修改名称</div>
+</div>
+
+<script>
+  let activeTarget = null; 
+  const imageUploader = document.getElementById('imageUploader');
+
+  const topImageArea = document.getElementById('topImageArea');
+  const widgetAreas = [
+    document.getElementById('widgetArea'), 
+    document.getElementById('widgetArea2')
+  ];
+
+  topImageArea.addEventListener('click', (e) => {
+    if (e.target.isContentEditable) return; 
+    activeTarget = topImageArea;
+    imageUploader.click();
+  });
+
+  widgetAreas.forEach(area => {
+    area.addEventListener('click', (e) => {
+      activeTarget = area.querySelector('.widget-ghost');
+      imageUploader.click();
+    });
+  });
+
+  imageUploader.addEventListener('change', (e) => {
+    const file = e.target.files[0];
+    if (!file || !activeTarget) return;
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const imgUrl = event.target.result;
+      activeTarget.innerHTML = '';
+      
+      const newImg = document.createElement('img');
+      newImg.src = imgUrl;
+      newImg.style.width = '100%';
+      newImg.style.height = '100%';
+      newImg.style.objectFit = 'cover';
+      
+      if(activeTarget.classList.contains('app-icon')) {
+        newImg.style.borderRadius = '11px';
+      } else if (activeTarget.classList.contains('widget-ghost')) {
+        newImg.style.borderRadius = '16px';
+      }
+      activeTarget.appendChild(newImg);
+
+      if (document.getElementById('beautifyScreen').classList.contains('active')) {
+        updateListPreview();
+      }
+    };
+    reader.readAsDataURL(file);
+    imageUploader.value = ''; 
+  });
+
+  const beautifyApp = document.getElementById('beautifyApp');
+  const beautifyScreen = document.getElementById('beautifyScreen');
+  const homeScreen = document.getElementById('homeScreen');
+  const appEditList = document.getElementById('appEditList');
+
+  const appsData = [
+    { name: 'Gmail', iconId: 'gmail-icon', nameId: 'gmail-name' },
+    { name: 'Tiktok', iconId: 'tiktok-icon', nameId: 'tiktok-name' },
+    { name: 'Messages', iconId: 'messages-icon', nameId: 'messages-name' },
+    { name: 'Maps', iconId: 'maps-icon', nameId: 'maps-name' },
+    { name: 'Spotify', iconId: 'spotify-icon', nameId: 'spotify-name' },
+    { name: 'Clock', iconId: 'clock-icon', nameId: 'clock-name' },
+    { name: 'Instagram', iconId: 'instagram-icon', nameId: 'instagram-name' }
+  ];
+
+  beautifyApp.addEventListener('click', () => {
+    homeScreen.style.display = 'none';
+    beautifyScreen.classList.add('active');
+    renderEditList();
+  });
+
+  function closeBeautify() {
+    beautifyScreen.classList.remove('active');
+    homeScreen.style.display = 'flex';
+    activeTarget = null;
+  }
+
+  function renderEditList() {
+    appEditList.innerHTML = '';
+    appsData.forEach(app => {
+      const item = document.createElement('div');
+      item.className = 'app-edit-item';
+      
+      const iconPreview = document.createElement('div');
+      iconPreview.className = 'edit-app-icon';
+      iconPreview.innerHTML = document.getElementById(app.iconId).innerHTML;
+
+      const inputGroup = document.createElement('div');
+      inputGroup.className = 'edit-input-group';
+      const label = document.createElement('label');
+      label.innerText = '应用名称';
+      const nameInput = document.createElement('input');
+      nameInput.type = 'text';
+      nameInput.value = document.getElementById(app.nameId).innerText;
+      nameInput.onchange = (e) => {
+        document.getElementById(app.nameId).innerText = e.target.value;
+      };
+      inputGroup.appendChild(label);
+      inputGroup.appendChild(nameInput);
+
+      const changeBtn = document.createElement('button');
+      changeBtn.className = 'upload-icon-btn';
+      changeBtn.innerText = '更换图标';
+      changeBtn.onclick = () => {
+        activeTarget = document.getElementById(app.iconId);
+        imageUploader.click();
+      };
+
+      item.appendChild(iconPreview);
+      item.appendChild(inputGroup);
+      item.appendChild(changeBtn);
+      appEditList.appendChild(item);
+    });
+  }
+
+  function updateListPreview() {
+    if (!activeTarget) return;
+    const index = appsData.findIndex(app => app.iconId === activeTarget.id);
+    if (index !== -1) {
+      const editItems = document.querySelectorAll('.app-edit-item');
+      if (editItems[index]) {
+        editItems[index].querySelector('.edit-app-icon').innerHTML = activeTarget.innerHTML;
+      }
+    }
+  }
+
+  const fullscreenBtn = document.getElementById('fullscreenToggle');
+  function toggleFullscreen() {
+    const doc = window.document;
+    const docEl = doc.documentElement;
+
+    const requestFullScreen = docEl.requestFullscreen || docEl.mozRequestFullScreen || docEl.webkitRequestFullScreen || docEl.msRequestFullscreen;
+    const cancelFullScreen = doc.exitFullscreen || doc.mozCancelFullScreen || doc.webkitExitFullscreen || doc.msExitFullscreen;
+
+    if (!doc.fullscreenElement && !doc.mozFullScreenElement && !doc.webkitFullscreenElement && !doc.msFullscreenElement) {
+      if (requestFullScreen) {
+        requestFullScreen.call(docEl).catch(err => { toggleCssFullscreen(); });
+      } else { toggleCssFullscreen(); }
+    } else {
+      if (cancelFullScreen) { cancelFullScreen.call(doc).catch(err => console.log(err)); } else { toggleCssFullscreen(); }
+    }
+  }
+
+  let isCssFullscreen = false;
+  function toggleCssFullscreen() {
+    isCssFullscreen = !isCssFullscreen;
+    const screen = document.getElementById('beautifyScreen');
+    if (isCssFullscreen) {
+      screen.style.position = 'fixed'; screen.style.top = '0'; screen.style.left = '0';
+      screen.style.width = '100vw'; screen.style.height = '100dvh'; screen.style.borderRadius = '0';
+      fullscreenBtn.innerText = '退出全屏'; fullscreenBtn.classList.add('active');
+    } else {
+      screen.style.position = ''; screen.style.top = ''; screen.style.left = '';
+      screen.style.width = ''; screen.style.height = ''; screen.style.borderRadius = '';
+      fullscreenBtn.innerText = '开启全屏'; fullscreenBtn.classList.remove('active');
+    }
+  }
+
+  document.addEventListener('fullscreenchange', updateFullscreenBtnText);
+  document.addEventListener('webkitfullscreenchange', updateFullscreenBtnText);
+  document.addEventListener('mozfullscreenchange', updateFullscreenBtnText);
+  document.addEventListener('MSFullscreenChange', updateFullscreenBtnText);
+
+  function updateFullscreenBtnText() {
+    const isFull = document.fullscreenElement || document.webkitFullscreenElement || document.mozFullScreenElement || document.msFullscreenElement;
+    if (isFull) {
+      fullscreenBtn.innerText = '退出全屏'; fullscreenBtn.classList.add('active');
+    } else {
+      fullscreenBtn.innerText = '开启全屏'; fullscreenBtn.classList.remove('active');
+    }
+  }
+</script>
+</body>
+</html>
